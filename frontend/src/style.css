@@ -165,6 +165,63 @@ nav ul li a{
     padding-top: 15px;
 }
 
+/* 商品卡片样式 */
+.product-card {
+    float: left;
+    width: 24%;
+    padding: 0.5%;
+    text-align: center;
+    position: relative;
+}
+
+.product-card:hover {
+    color: #1e8bc3;
+}
+
+.product-card img {
+    width: 224px;
+    height: 224px;
+    transition: transform 0.3s ease;
+}
+
+.product-card:hover img {
+    transform: scale(1.05);
+}
+
+.product-name {
+    width: 224px;
+    text-align: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: rgb(170, 170, 170);
+    border-top: 2px solid #1e8bc3;
+    margin: -6px auto 0;
+    padding-top: 15px;
+}
+
+.product-price {
+    font-size: 20px;
+    font-weight: bold;
+    color: #e74c3c;
+    margin: 10px 0;
+}
+
+.add-to-cart {
+    background-color: #1e8bc3;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.3s ease;
+}
+
+.add-to-cart:hover {
+    background-color: #155d7b;
+}
+
 /*首页通用栏目显示模块*/
 .title{
 	height: 20px;
@@ -334,6 +391,16 @@ footer .qrImg{
 	margin-top: 20px;
 	width: 100%;
 	background: #033f58;
+}
+
+/* Footer 链接样式 */
+footer .copyright a {
+    color: #ffffff !important;
+    text-decoration: none;
+}
+
+footer .copyright a:hover {
+    text-decoration: underline;
 }
 /*联系方式跟分享的区块*/
 .footerPhoneAndShare{
