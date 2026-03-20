@@ -54,8 +54,6 @@
           <a href="#">📰 汽车内饰保养小技巧</a>
           <a href="#">📰 TeslaPJ春季促销活动</a>
           <a href="#">📰 新品方向盘套试用体验</a>
-          <a href="#">📰 汽车电子选购指南</a>
-          <a href="#">📰 TeslaPJ会员福利升级</a>
         </div>
       </div>
 
