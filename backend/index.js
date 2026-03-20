@@ -69,6 +69,30 @@ app.post('/api/products', (req, res) => {
   res.json({ id: result.lastInsertRowid, name, description, price, category, image_url, stock });
 });
 
+app.put('/api/products/:id', (req, res) => {
+  const { name, description, price, category, image_url, stock } = req.body;
+  const result = db.prepare(
+    'UPDATE products SET name = ?, description = ?, price = ?, category = ?, image_url = ?, stock = ? WHERE id = ?'
+  ).run(name, description, price, category, image_url, stock, req.params.id);
+  
+  if (result.changes === 0) {
+    return res.status(404).json({ error: 'Product not found' });
+  }
+  
+  const product = db.prepare('SELECT * FROM products WHERE id = ?').get(req.params.id);
+  res.json(product);
+});
+
+app.delete('/api/products/:id', (req, res) => {
+  const result = db.prepare('DELETE FROM products WHERE id = ?').run(req.params.id);
+  
+  if (result.changes === 0) {
+    return res.status(404).json({ error: 'Product not found' });
+  }
+  
+  res.json({ message: 'Product deleted successfully' });
+});
+
 app.post('/api/orders', (req, res) => {
   const { customer_name, customer_email, customer_phone, items } = req.body;
   
