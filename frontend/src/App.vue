@@ -8,6 +8,16 @@
   <div v-else-if="showAdmin">
     <Admin :api-base="API_BASE" :token="adminToken" @show-front="showAdmin = false" @logout="handleLogout" />
   </div>
+  <div v-else-if="showNewsDetail">
+    <NewsDetail :news-id="currentNewsId" :api-base="API_BASE" @go-back="showNewsDetail = false" />
+  </div>
+  <div v-else-if="showNewsList">
+    <NewsList 
+      :api-base="API_BASE" 
+      @go-back="showNewsList = false"
+      @view-news="(id) => { currentNewsId = id; showNewsList = false; showNewsDetail = true; }"
+    />
+  </div>
   <div v-else id="body">
     <!-- 顶部：LOGO + 导航栏 -->
     <header id="head">
@@ -60,15 +70,22 @@
       <div class="newsList">
         <div class="title">
           <a href="#" class="siteColumnName">新闻资讯</a>
-          <a href="#" class="more">更多>></a>
+          <a href="#" @click.prevent="showNewsList = true" class="more">更多>></a>
         </div>
         <div class="siteColumnContent">
-          <a href="#">📰 特斯拉最新车型配件上市</a>
-          <a href="#">📰 2026年汽车配饰流行趋势</a>
-          <a href="#">📰 如何选择合适的汽车脚垫</a>
-          <a href="#">📰 汽车内饰保养小技巧</a>
-          <a href="#">📰 TeslaPJ春季促销活动</a>
-          <a href="#">📰 新品方向盘套试用体验</a>
+          <template v-if="homeNewsList.length > 0">
+            <a v-for="news in homeNewsList" :key="news.id" href="#" @click.prevent="handleNewsClick(news.id)">
+              📰 {{ news.title }}
+            </a>
+          </template>
+          <template v-else>
+            <a href="#">📰 特斯拉最新车型配件上市</a>
+            <a href="#">📰 2026年汽车配饰流行趋势</a>
+            <a href="#">📰 如何选择合适的汽车脚垫</a>
+            <a href="#">📰 汽车内饰保养小技巧</a>
+            <a href="#">📰 TeslaPJ春季促销活动</a>
+            <a href="#">📰 新品方向盘套试用体验</a>
+          </template>
         </div>
       </div>
 
@@ -107,8 +124,9 @@
       <div style="clear:both;"></div>
     </footer>
 
-    <!-- 购物车组件 -->
+    <!-- 购物车组件（仅登录用户显示） -->
     <ShoppingCart 
+      v-if="userInfo"
       :cart-items="cartItems" 
       :get-product-image="getProductImage"
       @remove-item="removeFromCart"
@@ -119,11 +137,13 @@
 </template>
 
 <script>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import Admin from './Admin.vue'
 import Login from './Login.vue'
 import UserAuth from './UserAuth.vue'
 import ShoppingCart from './ShoppingCart.vue'
+import NewsDetail from './NewsDetail.vue'
+import NewsList from './NewsList.vue'
 import './style.css'
 
 // 导入商品图片
@@ -158,7 +178,7 @@ const newProducts = [
 
 export default {
   name: 'App',
-  components: { Admin, Login, UserAuth, ShoppingCart },
+  components: { Admin, Login, UserAuth, ShoppingCart, NewsDetail, NewsList },
   setup() {
     const showAdmin = ref(false)
     const showLogin = ref(false)
@@ -169,6 +189,15 @@ export default {
     const loading = ref(true)
     const error = ref('')
     const cartItems = ref([]) // 购物车商品
+    const showNewsDetail = ref(false) // 显示新闻详情
+    const showNewsList = ref(false) // 显示新闻列表
+    const currentNewsId = ref(null) // 当前新闻ID
+    const newsList = ref([]) // 新闻列表
+    
+    // 首页只显示前7条新闻
+    const homeNewsList = computed(() => {
+      return newsList.value.slice(0, 7)
+    })
     
     const API_BASE = 'http://192.168.0.120:3000/api'
 
@@ -197,6 +226,13 @@ export default {
 
     // 添加到购物车
     const addToCart = (product) => {
+      // 检查用户是否登录
+      if (!userInfo.value) {
+        alert('请先注册/登录！')
+        showUserAuth.value = true
+        return
+      }
+      
       // 检查商品是否已经在购物车中
       const existingItem = cartItems.value.find(item => item.id === product.id)
       
@@ -261,6 +297,24 @@ export default {
           console.error('加载购物车失败:', e)
         }
       }
+    }
+
+    // 获取新闻列表
+    const fetchNewsList = async () => {
+      try {
+        const response = await fetch(`${API_BASE}/news`)
+        if (response.ok) {
+          newsList.value = await response.json()
+        }
+      } catch (err) {
+        console.error('获取新闻列表失败:', err)
+      }
+    }
+
+    // 点击新闻
+    const handleNewsClick = (newsId) => {
+      currentNewsId.value = newsId
+      showNewsDetail.value = true
     }
 
     // 滚动到产品展示区域
@@ -337,6 +391,8 @@ export default {
 
     onMounted(() => {
       fetchProducts()
+      // 获取新闻列表
+      fetchNewsList()
       // 检查是否有保存的 token
       checkLogin()
       // 检查用户登录状态
@@ -349,10 +405,15 @@ export default {
       showAdmin,
       showLogin,
       showUserAuth,
+      showNewsDetail,
+      showNewsList,
+      currentNewsId,
       adminToken,
       userInfo,
       API_BASE,
       products,
+      newsList,
+      homeNewsList,
       loading,
       error,
       cartItems,
@@ -361,6 +422,7 @@ export default {
       removeFromCart,
       updateCartQuantity,
       handleCheckout,
+      handleNewsClick,
       scrollToProducts,
       handleAdminClick,
       handleLoginSuccess,

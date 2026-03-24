@@ -50,6 +50,19 @@ db.exec(`
 `);
 
 db.exec(`
+  CREATE TABLE IF NOT EXISTS news (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,
+    content TEXT NOT NULL,
+    image_url TEXT,
+    summary TEXT,
+    author TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )
+`);
+
+db.exec(`
   CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     username TEXT NOT NULL UNIQUE,
@@ -310,6 +323,75 @@ app.post('/api/orders', (req, res) => {
 app.get('/api/orders', authMiddleware, (req, res) => {
   const orders = db.prepare('SELECT * FROM orders ORDER BY created_at DESC').all();
   res.json(orders);
+});
+
+// 新闻资讯 API
+// 获取新闻列表（公开接口）
+app.get('/api/news', (req, res) => {
+  const news = db.prepare('SELECT id, title, summary, image_url, created_at FROM news ORDER BY created_at DESC').all();
+  res.json(news);
+});
+
+// 获取单条新闻详情（公开接口）
+app.get('/api/news/:id', (req, res) => {
+  const news = db.prepare('SELECT * FROM news WHERE id = ?').get(req.params.id);
+  if (!news) {
+    return res.status(404).json({ error: '新闻不存在' });
+  }
+  res.json(news);
+});
+
+// 创建新闻（需要管理员权限）
+app.post('/api/news', authMiddleware, (req, res) => {
+  const { title, content, image_url, summary, author } = req.body;
+  
+  if (!title || !content) {
+    return res.status(400).json({ error: '标题和内容不能为空' });
+  }
+  
+  const result = db.prepare(
+    'INSERT INTO news (title, content, image_url, summary, author) VALUES (?, ?, ?, ?, ?)'
+  ).run(title, content, image_url || null, summary || null, author || null);
+  
+  res.json({ 
+    id: result.lastInsertRowid, 
+    title, 
+    content, 
+    image_url, 
+    summary, 
+    author 
+  });
+});
+
+// 更新新闻（需要管理员权限）
+app.put('/api/news/:id', authMiddleware, (req, res) => {
+  const { title, content, image_url, summary, author } = req.body;
+  
+  if (!title || !content) {
+    return res.status(400).json({ error: '标题和内容不能为空' });
+  }
+  
+  const result = db.prepare(
+    'UPDATE news SET title = ?, content = ?, image_url = ?, summary = ?, author = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?'
+  ).run(title, content, image_url || null, summary || null, author || null, req.params.id);
+  
+  if (result.changes === 0) {
+    return res.status(404).json({ error: '新闻不存在' });
+  }
+  
+  const news = db.prepare('SELECT * FROM news WHERE id = ?').get(req.params.id);
+  res.json(news);
+});
+
+// 删除新闻（需要管理员权限）
+app.delete('/api/news/:id', authMiddleware, (req, res) => {
+  const result = db.prepare('DELETE FROM news WHERE id = ?').run(req.params.id);
+  
+  if (result.changes === 0) {
+    return res.status(404).json({ error: '新闻不存在' });
+  }
+  
+  res.json({ message: '新闻删除成功' });
 });
 
 app.listen(PORT, '0.0.0.0', () => {
