@@ -4,9 +4,15 @@
       <div class="container mx-auto px-4">
         <div class="flex justify-between items-center">
           <h1 class="text-3xl font-bold">🔧 TeslaPJ 管理后台</h1>
-          <button @click="goBack" class="bg-white text-purple-800 px-4 py-2 rounded hover:bg-gray-100 transition-colors">
-            返回前台
-          </button>
+          <div class="flex items-center space-x-4">
+            <span class="text-sm opacity-80">欢迎，{{ adminUsername }}</span>
+            <button @click="handleLogout" class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 transition-colors">
+              退出登录
+            </button>
+            <button @click="goBack" class="bg-white text-purple-800 px-4 py-2 rounded hover:bg-gray-100 transition-colors">
+              返回前台
+            </button>
+          </div>
         </div>
       </div>
     </header>
@@ -161,8 +167,8 @@ import { ref, onMounted } from 'vue'
 
 export default {
   name: 'Admin',
-  props: ['showFront'],
-  emits: ['show-front'],
+  props: ['showFront', 'apiBase', 'token'],
+  emits: ['show-front', 'logout'],
   setup(props, { emit }) {
     const activeTab = ref('products')
     const products = ref([])
@@ -181,12 +187,40 @@ export default {
       stock: 0
     })
 
-    const API_BASE = 'http://192.168.0.120:3000/api'
+    const adminUsername = ref(localStorage.getItem('adminUsername') || '管理员')
+
+    // 带鉴权的 fetch 封装
+    const authFetch = (url, options = {}) => {
+      const headers = {
+        'Content-Type': 'application/json',
+        ...options.headers
+      }
+      
+      if (props.token) {
+        headers['Authorization'] = `Bearer ${props.token}`
+      }
+      
+      return fetch(url, {
+        ...options,
+        headers
+      })
+    }
+
+    const handleLogout = async () => {
+      try {
+        await authFetch(`${props.apiBase}/logout`, {
+          method: 'POST'
+        })
+      } catch (err) {
+        console.error('登出失败:', err)
+      }
+      emit('logout')
+    }
 
     const fetchProducts = async () => {
       try {
         loading.value = true
-        const response = await fetch(`${API_BASE}/products`)
+        const response = await authFetch(`${props.apiBase}/products`)
         if (!response.ok) throw new Error('Failed to fetch products')
         products.value = await response.json()
         error.value = ''
@@ -201,8 +235,14 @@ export default {
     const fetchOrders = async () => {
       try {
         loadingOrders.value = true
-        const response = await fetch(`${API_BASE}/orders`)
-        if (!response.ok) throw new Error('Failed to fetch orders')
+        const response = await authFetch(`${props.apiBase}/orders`)
+        if (!response.ok) {
+          if (response.status === 401) {
+            emit('logout')
+            return
+          }
+          throw new Error('Failed to fetch orders')
+        }
         orders.value = await response.json()
       } catch (err) {
         console.error(err)
@@ -233,17 +273,22 @@ export default {
     const saveProduct = async () => {
       try {
         const url = editingProduct.value 
-          ? `${API_BASE}/products/${editingProduct.value.id}`
-          : `${API_BASE}/products`
+          ? `${props.apiBase}/products/${editingProduct.value.id}`
+          : `${props.apiBase}/products`
         const method = editingProduct.value ? 'PUT' : 'POST'
         
-        const response = await fetch(url, {
+        const response = await authFetch(url, {
           method,
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(formData.value)
         })
         
-        if (!response.ok) throw new Error('Failed to save product')
+        if (!response.ok) {
+          if (response.status === 401) {
+            emit('logout')
+            return
+          }
+          throw new Error('Failed to save product')
+        }
         
         showModal.value = false
         fetchProducts()
@@ -257,8 +302,14 @@ export default {
       if (!confirm('确定要删除这个商品吗？')) return
       
       try {
-        const response = await fetch(`${API_BASE}/products/${id}`, { method: 'DELETE' })
-        if (!response.ok) throw new Error('Failed to delete product')
+        const response = await authFetch(`${props.apiBase}/products/${id}`, { method: 'DELETE' })
+        if (!response.ok) {
+          if (response.status === 401) {
+            emit('logout')
+            return
+          }
+          throw new Error('Failed to delete product')
+        }
         fetchProducts()
       } catch (err) {
         console.error(err)
@@ -289,7 +340,9 @@ export default {
       openAddModal,
       openEditModal,
       saveProduct,
-      deleteProduct
+      deleteProduct,
+      adminUsername,
+      handleLogout
     }
   }
 }

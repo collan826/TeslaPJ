@@ -1,6 +1,12 @@
 <template>
-  <div v-if="showAdmin">
-    <Admin @show-front="showAdmin = false" />
+  <div v-if="showUserAuth">
+    <UserAuth :api-base="API_BASE" @login-success="handleUserLoginSuccess" @cancel="showUserAuth = false" />
+  </div>
+  <div v-else-if="showLogin">
+    <Login :api-base="API_BASE" @login-success="handleLoginSuccess" @cancel="showLogin = false" />
+  </div>
+  <div v-else-if="showAdmin">
+    <Admin :api-base="API_BASE" :token="adminToken" @show-front="showAdmin = false" @logout="handleLogout" />
   </div>
   <div v-else id="body">
     <!-- 顶部：LOGO + 导航栏 -->
@@ -16,6 +22,15 @@
           <a href="#">🔌 电子电器</a>
           <a href="#">🧹 清洁收纳</a>
           <a href="#">🔧 维修保养</a>
+          <div class="user-auth-buttons">
+            <template v-if="!userInfo">
+              <a href="#" @click.prevent="showUserAuth = true" class="user-auth-link">🔐 登录/注册</a>
+            </template>
+            <template v-else>
+              <span class="user-greeting">👋 欢迎，{{ userInfo.username }}</span>
+              <a href="#" @click.prevent="handleUserLogout" class="user-auth-link">退出</a>
+            </template>
+          </div>
         </nav>
       </div>
     </header>
@@ -84,7 +99,7 @@
             <a href="#">联系方式</a> | 
             <a href="#">网站地图</a> | 
             <a href="#">友情链接</a> | 
-            <a href="#" @click.prevent="showAdmin = true" style="color: #9333ea;">🔧 管理后台</a>
+            <a href="#" @click.prevent="handleAdminClick" style="color: #9333ea;">🔧 管理后台</a>
           </span>
           © 2026 TeslaPJ. All rights reserved. | 专业汽车配饰商城
         </div>
@@ -97,6 +112,8 @@
 <script>
 import { ref, onMounted } from 'vue'
 import Admin from './Admin.vue'
+import Login from './Login.vue'
+import UserAuth from './UserAuth.vue'
 import './style.css'
 
 // 导入商品图片
@@ -131,16 +148,22 @@ const newProducts = [
 
 export default {
   name: 'App',
-  components: { Admin },
+  components: { Admin, Login, UserAuth },
   setup() {
     const showAdmin = ref(false)
+    const showLogin = ref(false)
+    const showUserAuth = ref(false)
+    const adminToken = ref('')
+    const userInfo = ref(null)
     const products = ref([])
     const loading = ref(true)
     const error = ref('')
+    
+    const API_BASE = 'http://192.168.0.120:3000/api'
 
     const fetchProducts = async () => {
       try {
-        const response = await fetch('http://192.168.0.120:3000/api/products')
+        const response = await fetch(`${API_BASE}/products`)
         if (!response.ok) {
           throw new Error('Failed to fetch products')
         }
@@ -174,18 +197,96 @@ export default {
       }
     }
 
+    // 检查是否已登录
+    const checkLogin = () => {
+      const token = localStorage.getItem('adminToken')
+      if (token) {
+        adminToken.value = token
+        return true
+      }
+      return false
+    }
+
+    // 点击管理后台
+    const handleAdminClick = () => {
+      if (checkLogin()) {
+        showAdmin.value = true
+      } else {
+        showLogin.value = true
+      }
+    }
+
+    // 登录成功
+    const handleLoginSuccess = (token) => {
+      adminToken.value = token
+      showLogin.value = false
+      showAdmin.value = true
+    }
+
+    // 登出
+    const handleLogout = () => {
+      localStorage.removeItem('adminToken')
+      localStorage.removeItem('adminUsername')
+      adminToken.value = ''
+      showAdmin.value = false
+    }
+
+    // 检查用户登录状态
+    const checkUserLogin = () => {
+      const userInfoStr = localStorage.getItem('userInfo')
+      if (userInfoStr) {
+        try {
+          userInfo.value = JSON.parse(userInfoStr)
+        } catch (e) {
+          console.error('解析用户信息失败:', e)
+        }
+      }
+    }
+
+    // 用户登录成功
+    const handleUserLoginSuccess = (data) => {
+      userInfo.value = {
+        username: data.username,
+        role: data.role,
+        email: data.email,
+        phone: data.phone
+      }
+      showUserAuth.value = false
+    }
+
+    // 用户登出
+    const handleUserLogout = () => {
+      localStorage.removeItem('userToken')
+      localStorage.removeItem('userInfo')
+      userInfo.value = null
+    }
+
     onMounted(() => {
       fetchProducts()
+      // 检查是否有保存的 token
+      checkLogin()
+      // 检查用户登录状态
+      checkUserLogin()
     })
 
     return {
       showAdmin,
+      showLogin,
+      showUserAuth,
+      adminToken,
+      userInfo,
+      API_BASE,
       products,
       loading,
       error,
       getProductImage,
       addToCart,
-      scrollToProducts
+      scrollToProducts,
+      handleAdminClick,
+      handleLoginSuccess,
+      handleLogout,
+      handleUserLoginSuccess,
+      handleUserLogout
     }
   }
 }

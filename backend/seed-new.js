@@ -71,6 +71,6 @@ sampleProducts.forEach(product => {
 });
 
 console.log('Sample data inserted successfully!');
-console.log(`Inserted ${sampleProducts.length} products');
+console.log(`Inserted ${sampleProducts.length} products`);
 
 db.close();
