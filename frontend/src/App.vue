@@ -106,6 +106,15 @@
       </div>
       <div style="clear:both;"></div>
     </footer>
+
+    <!-- 购物车组件 -->
+    <ShoppingCart 
+      :cart-items="cartItems" 
+      :get-product-image="getProductImage"
+      @remove-item="removeFromCart"
+      @update-quantity="updateCartQuantity"
+      @checkout="handleCheckout"
+    />
   </div>
 </template>
 
@@ -114,6 +123,7 @@ import { ref, onMounted } from 'vue'
 import Admin from './Admin.vue'
 import Login from './Login.vue'
 import UserAuth from './UserAuth.vue'
+import ShoppingCart from './ShoppingCart.vue'
 import './style.css'
 
 // 导入商品图片
@@ -148,7 +158,7 @@ const newProducts = [
 
 export default {
   name: 'App',
-  components: { Admin, Login, UserAuth },
+  components: { Admin, Login, UserAuth, ShoppingCart },
   setup() {
     const showAdmin = ref(false)
     const showLogin = ref(false)
@@ -158,6 +168,7 @@ export default {
     const products = ref([])
     const loading = ref(true)
     const error = ref('')
+    const cartItems = ref([]) // 购物车商品
     
     const API_BASE = 'http://192.168.0.120:3000/api'
 
@@ -186,7 +197,70 @@ export default {
 
     // 添加到购物车
     const addToCart = (product) => {
+      // 检查商品是否已经在购物车中
+      const existingItem = cartItems.value.find(item => item.id === product.id)
+      
+      if (existingItem) {
+        // 如果已存在，增加数量
+        existingItem.quantity += 1
+      } else {
+        // 如果不存在，添加新商品
+        cartItems.value.push({
+          ...product,
+          quantity: 1
+        })
+      }
+      
+      // 保存到 localStorage
+      localStorage.setItem('cartItems', JSON.stringify(cartItems.value))
+      
+      // 提示用户
       alert(`已将 "${product.name}" 加入购物车！`)
+    }
+
+    // 从购物车移除商品
+    const removeFromCart = (index) => {
+      cartItems.value.splice(index, 1)
+      localStorage.setItem('cartItems', JSON.stringify(cartItems.value))
+    }
+
+    // 更新商品数量
+    const updateCartQuantity = ({ index, change }) => {
+      cartItems.value[index].quantity += change
+      
+      // 如果数量小于等于0，移除商品
+      if (cartItems.value[index].quantity <= 0) {
+        cartItems.value.splice(index, 1)
+      }
+      
+      localStorage.setItem('cartItems', JSON.stringify(cartItems.value))
+    }
+
+    // 结算
+    const handleCheckout = () => {
+      if (cartItems.value.length === 0) {
+        alert('购物车是空的，快去选购商品吧！')
+        return
+      }
+      
+      const total = cartItems.value.reduce((sum, item) => sum + (item.price * item.quantity), 0)
+      alert(`结算成功！总计：¥${total.toFixed(2)}\n\n感谢您的购买！`)
+      
+      // 清空购物车
+      cartItems.value = []
+      localStorage.setItem('cartItems', JSON.stringify(cartItems.value))
+    }
+
+    // 从 localStorage 加载购物车
+    const loadCartFromStorage = () => {
+      const savedCart = localStorage.getItem('cartItems')
+      if (savedCart) {
+        try {
+          cartItems.value = JSON.parse(savedCart)
+        } catch (e) {
+          console.error('加载购物车失败:', e)
+        }
+      }
     }
 
     // 滚动到产品展示区域
@@ -267,6 +341,8 @@ export default {
       checkLogin()
       // 检查用户登录状态
       checkUserLogin()
+      // 加载购物车
+      loadCartFromStorage()
     })
 
     return {
@@ -279,8 +355,12 @@ export default {
       products,
       loading,
       error,
+      cartItems,
       getProductImage,
       addToCart,
+      removeFromCart,
+      updateCartQuantity,
+      handleCheckout,
       scrollToProducts,
       handleAdminClick,
       handleLoginSuccess,
